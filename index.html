@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8' />
+    <title>Points, points &amp; points - Leaflet version</title>
+    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.2.0/dist/leaflet.js"></script>
+    <script src='https://npmcdn.com/@turf/turf/turf.min.js'></script>
+    <style>
+      body {
+        margin:0;
+        padding:0;
+      }
+      #map {
+        position:absolute;
+        top:0;
+        bottom:0;
+        width:100%;
+      }
+      #text {
+        position: absolute;
+        z-index: 1000;
+        bottom: 1em;
+        left: 1em;
+        padding: 15px;
+        background-color: white;
+        border: #0e0e0e 1px solid;
+      }
+    </style>
+  </head>
+  <body>
+    <div id='map'>
+      <div id="text">
+        <h1 id="title">How Many Points...</h1>
+        <div id="docs">
+          <p>
+            Number of points to place on the map:
+            <input id="num" value="1000" type="number">
+            <button id="draw">Draw</button>
+            <button id="clear">Clear</button>
+          </p>
+          <p>
+            This page is a <b>Leaflet</b> demo port of this <a href="https://derekswingley.com/lab/olpts/">OpenLayers 2 Derek Swingley demo</a>
+          </p>
+        </div>
+      </div>
+    </div>
+    <script>
+      // initialize Leaflet
+      var map = L.map('map', {
+        preferCanvas: true
+      }).setView({lon: 0, lat: 0}, 2);
+
+      // add the OpenStreetMap tiles
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap contributors</a>'
+      }).addTo(map);
+
+      var bounds = map.getBounds();
+      var flattenedBounds = [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()];
+
+      var pts = turf.random.randomPoint(Number(document.getElementById('num').value), {
+        bbox: flattenedBounds
+      });
+
+      var pointsLayer = L.geoJson(pts, {
+        pointToLayer: function(feature, latlng) {
+          return new L.CircleMarker(latlng, {radius: 6, fillOpacity: 0.85, color: '#fff', fillColor: '#3399CC'});
+        }
+      });
+
+      map.addLayer(pointsLayer);
+
+      document.getElementById('draw').addEventListener('click', function(e) {
+        var b = map.getBounds();
+        var flattenedB = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
+        var points = turf.random.randomPoint(Number(document.getElementById('num').value), {
+          bbox: flattenedB
+        });
+        pointsLayer.addData(points);
+      });
+      document.getElementById('clear').addEventListener('click', function(e) {
+        pointsLayer.clearLayers();
+      });
+
+    </script>
+  </body>
+</html>
