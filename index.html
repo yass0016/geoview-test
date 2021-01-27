@@ -1,90 +1,98 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset='utf-8' />
-    <title>Points, points &amp; points - Leaflet version</title>
-    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.2.0/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.2.0/dist/leaflet.js"></script>
-    <script src='https://npmcdn.com/@turf/turf/turf.min.js'></script>
+    <meta charset="utf-8" />
+    <title>Feature Collection Parsing</title>
+    <meta
+      name="viewport"
+      content="initial-scale=1,maximum-scale=1,user-scalable=no"
+    />
+
+    <!-- Load Leaflet from CDN -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+      integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+      crossorigin=""
+    />
+    <script
+      src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+      integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+      crossorigin=""
+    ></script>
+
+    <!-- Load Esri Leaflet from CDN -->
+    <script
+      src="https://unpkg.com/esri-leaflet@2.5.3/dist/esri-leaflet.js"
+      integrity="sha512-K0Vddb4QdnVOAuPJBHkgrua+/A9Moyv8AQEWi0xndQ+fqbRfAFd47z4A9u1AW/spLO0gEaiE1z98PK1gl5mC5Q=="
+      crossorigin=""
+    ></script>
+
     <style>
       body {
-        margin:0;
-        padding:0;
+        margin: 0;
+        padding: 0;
       }
       #map {
-        position:absolute;
-        top:0;
-        bottom:0;
-        width:100%;
-      }
-      #text {
         position: absolute;
-        z-index: 1000;
-        bottom: 1em;
-        left: 1em;
-        padding: 15px;
-        background-color: white;
-        border: #0e0e0e 1px solid;
+        top: 0;
+        bottom: 0;
+        right: 0;
+        left: 0;
       }
     </style>
   </head>
   <body>
-    <div id='map'>
-      <div id="text">
-        <h1 id="title">How Many Points...</h1>
-        <div id="docs">
-          <p>
-            Number of points to place on the map:
-            <input id="num" value="1000" type="number">
-            <button id="draw">Draw</button>
-            <button id="clear">Clear</button>
-          </p>
-          <p>
-            This page is a <b>Leaflet</b> demo port of this <a href="https://derekswingley.com/lab/olpts/">OpenLayers 2 Derek Swingley demo</a>
-          </p>
-        </div>
-      </div>
-    </div>
+    <div id="map"></div>
+
     <script>
-      // initialize Leaflet
-      var map = L.map('map', {
-        preferCanvas: true
-      }).setView({lon: 0, lat: 0}, 2);
+      var map = L.map("map", { preferCanvas: true });
+      L.esri.basemapLayer("Topographic").addTo(map);
 
-      // add the OpenStreetMap tiles
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap contributors</a>'
-      }).addTo(map);
-
-      var bounds = map.getBounds();
-      var flattenedBounds = [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()];
-
-      var pts = turf.random.randomPoint(Number(document.getElementById('num').value), {
-        bbox: flattenedBounds
+      var query = L.esri.query({
+        url:
+          "https://geoappext.nrcan.gc.ca/arcgis/rest/services/GSCC/Geochronology/MapServer/0",
       });
 
-      var pointsLayer = L.geoJson(pts, {
-        pointToLayer: function(feature, latlng) {
-          return new L.CircleMarker(latlng, {radius: 6, fillOpacity: 0.85, color: '#fff', fillColor: '#3399CC'});
+      // query.within(bounds);
+
+      query.run(function (error, fCollection, response) {
+        if (error) {
+          console.log(error);
+          return;
         }
-      });
+        // console.log(response);
+        // console.log(featureCollection);
+        // console.log("Found " + featureCollection.features.length + " features");
 
-      map.addLayer(pointsLayer);
+        var features = response.features;
+        var idField = response.fields[0].name;
 
-      document.getElementById('draw').addEventListener('click', function(e) {
-        var b = map.getBounds();
-        var flattenedB = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
-        var points = turf.random.randomPoint(Number(document.getElementById('num').value), {
-          bbox: flattenedB
-        });
-        pointsLayer.addData(points);
-      });
-      document.getElementById('clear').addEventListener('click', function(e) {
-        pointsLayer.clearLayers();
-      });
+        // empty geojson feature collection
+        var featureCollection = {
+          type: "FeatureCollection",
+          features: [],
+        };
 
+        for (var i = 0; i < 1000; i++) {
+          // convert ArcGIS Feature to GeoJSON Feature
+          var feature = L.esri.Util.arcgisToGeoJSON(features[i], idField);
+
+          // unproject the web mercator coordinates to lat/lng
+          var latlng = L.Projection.Mercator.unproject(
+            L.point(feature.geometry.coordinates)
+          );
+          feature.geometry.coordinates = [latlng.lng, latlng.lat];
+
+          featureCollection.features.push(feature);
+        }
+
+        console.log(featureCollection);
+
+        var geojson = L.geoJSON(featureCollection).addTo(map);
+
+        // map.fitBounds(geojson.getBounds());
+      });
     </script>
   </body>
 </html>
